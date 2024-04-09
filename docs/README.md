@@ -1,9 +1,9 @@
 # M5: Distributed Execution Engine
 
-> Collaboration: Individual milestone 
-> Completion: About 12–16 hours 
-> Deadline: Tuesday Apr. 9, 2024 (11:59PM ET) 
-> Latest handout version: CS1380:2024:M5 
+> Collaboration: Individual milestone\ 
+> Completion: About 12–16 hours\
+> Deadline: Tuesday Apr. 9, 2024 (11:59PM ET)\
+> Latest handout version: CS1380:2024:M5\
 > GitHub repo: https\://github.com/brown-cs1380/m5
 
 The goal of this milestone is to implement a scalable programming model and abstractions for processing large data sets in a distributed fashion.The core of the execution engine combines two higher order functions: a map function, which performs filtering and sorting and a reduce function, which performs a summarization operation. These functions operate over the distributed storage system implemented in the previous milestone, by serializing the distributed functions, attaching and running various tasks in parallel, managing all communications and data transfers between the various parts of the system.
@@ -19,7 +19,6 @@ The goal of this milestone is to implement a scalable programming model and abst
   - [A Handful of MapReduce Workflows](#a-handful-of-mapreduce-workflows)
   - [Functionality Checklist](#functionality-checklist)
   - [Reflections \& The Way Forward](#reflections--the-way-forward)
-  - [Notes](#notes)
   - [FAQ](#faq)
 
 ## Background & Context
@@ -58,7 +57,9 @@ For any MapReduce workflow, your MapReduce implementation can assume that the fu
 
 ## The Core MapReduce Abstractions
 
-The MapReduce model is simple and inherently parallel, thus automating scale-out to many computing nodes. At a high level, MapReduce works by breaking processing into two phases: a Map phase and a Reduce phase. Each phase takes as input and produces as output key-value pairs. The programmer specifies two functions to be used by these two phases, and optionally a few more functions used by other optional phases, and starts the computation.
+The MapReduce model is simple and inherently parallel, thus automating scale-out to many computing nodes. At a high level, MapReduce works by breaking processing into two phases: a Map phase and a Reduce phase[^1]. Each phase takes as input and produces as output key-value pairs. The programmer specifies two functions to be used by these two phases, and optionally a few more functions used by other optional phases, and starts the computation.
+
+[^1]: To distinguish between confusing names, we use the terms (1) Map and Reduce to talk about the phases of the MapReduce computation, (2) setMap and setReduce for the higher-order system-provided functions that take as inputs user-provided functions f, (3) mapper and reducer for the user-provided functions—named mapper and reducer, often followed by a number, in the handout examples—and (4) map and reduce for the JavaScript functions mentioned earlier.
 
 Here is how a MapReduce computation looks in our environment. 
 
@@ -182,7 +183,9 @@ Extend your implementation to support such a compact function. When such a funct
 **Distributed persistence.** The implementation as described so far assumes that the coordinator node responsible for orchestrating the computation is also the one responsible for gathering the results of all reduce instances. But this decision can be a performance bottleneck and forego many of the scalability (and later fault-tolerance) benefits of the underlying distributed storage system.
 
 A more scalable approach would be to have each node executing reduce store the results to the distributed storage system — not by having the coordinator redistribute the results, but rather by having each one of these nodes directly store the results to the appropriate node.
-Note that this storage instance cannot be the same one storing the input data, as there will later be no easy way to know which keys correspond to the input and which ones correspond to the output. One solution would be to instantiate a different storoperage instance for these outputs.
+Note that this storage instance cannot be the same one storing the input data, as there will later be no easy way to know which keys correspond to the input and which ones correspond to the output[^2]. One solution would be to instantiate a different storage instance for these outputs.
+
+[^2]: In hierarchical file systems, we tend to solve this problem by using a different directory; but such a structure does not exist in distributed key-value stores. One idea would be to prefix all keys with a special identifier denoting that the key corresponds to an input or an output.
 
 **In-memory operation.** Currently all nodes access their local file system when they need to store intermediate results between phases. This incurs additional overhead without providing too much benefit apart from the fact that intermediate results are inspectable.
 
@@ -261,10 +264,29 @@ To create a submission, run s/submit.sh from the root folder of M4. This will cr
 You are allowed to submit as many times as you want up until the deadline; so submit early and often. For full grade, before submitting the final version of your code make sure that (1) all linters run without any errors, (2) the provided tests run without any errors, and (3) you have provided an additional five or more tests with your implementation.
 ```
 
-## Notes
-
-1) To distinguish between confusing names, we use the terms (1) Map and Reduce to talk about the phases of the MapReduce computation, (2) setMap and setReduce for the higher-order system-provided functions that take as inputs user-provided functions f, (3) mapper and reducer for the user-provided functions—named mapper and reducer, often followed by a number, in the handout examples—and (4) map and reduce for the JavaScript functions mentioned earlier.
-
-2)  In hierarchical file systems, we tend to solve this problem by using a different directory; but such a structure does not exist in distributed key-value stores. One idea would be to prefix all keys with a special identifier denoting that the key corresponds to an input or an output.
 
 ## FAQ
+1. When any problem comes up, please first check:
+    - If the file paths you specify are agnostic to the current file location -- either specify the absolute path, or (preferably) use `path.join(__dirname, <relative_path>`
+    - The methods in your map-reduce service should likely take in a callback, just like in previous milestones. Make sure you call the callback in any branch of your code (N.B., responses from a node are triggered by the callback, see `serviceCallback` in `local/node.js` for details)
+
+2. I am using the obfuscated code, and I cannot add new methods to `store` or `route`
+    - For `store`, you can always just use `store.get` and `store.put`. `store.append` is just an "easier" approach (abstraction-wise)
+      - and since `append` just abstracts away de-duplication/grouping values with the same key, alternatively, you can keep things in memory (where js object naturally does the grouping for you) and flush to disk at the end of the phase
+    - For deregistering (`route`)
+      - You don't really need to worry about deregistering for testing purposes. Feel free to work on other parts first
+      - Once your map-reduce service works, registering/deregistering can be done by adding an 'interceptor' in the listening loop in `local/node.js` before `local.routes.get`
+
+3. How to import modules/packages for workflows
+    - Import it in `distribution.js`, and set global.<module> = require(<module>)` -- this will give all nodes access to the module. When using the module, you should use `global.<module>`
+    - Importing in `local/node.js` might work as well
+
+4. What does `notify` do, how does it differ from `comm.send` continuation, how to implement it
+
+5. What does `compact` do
+    - Prior to passing your results to the `reduce` function, your implementation on the Reducer node presumably runs some kind of grouping. The compaction function just runs this grouping function on the Mapper for a given key, right before shuffling results — to minimize the set of entries sent across the network
+
+6. The map phase of the crawler workflow is by nature async. What do I do
+     - As the crawler workflow depends mostly on  `map` (it's `map` that's mostly useful here,  `reduce` doesn't do much), you could simply invoke asynchronous functions (that will write to the file system) and return an immediate list of keys
+  
+   
