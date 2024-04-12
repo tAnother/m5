@@ -1,6 +1,6 @@
 # M5: Distributed Execution Engine
 
-> Collaboration: Individual milestone\ 
+> Collaboration: Individual milestone\
 > Completion: About 12–16 hours\
 > Deadline: Tuesday Apr. 9, 2024 (11:59PM ET)\
 > Latest handout version: CS1380:2024:M5\
@@ -267,12 +267,12 @@ You are allowed to submit as many times as you want up until the deadline; so su
 
 ## FAQ
 1. When any problem comes up, please first check:
-    - If the file paths you specify are agnostic to the current file location -- either specify the absolute path, or (preferably) use `path.join(__dirname, <relative_path>`
+    - If the file paths you specify are agnostic to the current file location -- use `path.join(__dirname, <relative_path>)`
     - The methods in your map-reduce service should likely take in a callback, just like in previous milestones. Make sure you call the callback in any branch of your code (N.B., responses from a node are triggered by the callback, see `serviceCallback` in `local/node.js` for details)
 
 2. I am using the obfuscated code, and I cannot add new methods to `store` or `route`
     - For `store`, you can always just use `store.get` and `store.put`. `store.append` is just an "easier" approach (abstraction-wise)
-      - and since `append` just abstracts away de-duplication/grouping values with the same key, alternatively, you can keep things in memory (where js object naturally does the grouping for you) and flush to disk at the end of the phase
+      - and since `append` just abstracts away de-duplication/grouping values with the same key, alternatively, you can just keep things in an object/map in memory, and flush them to disk at the end of the phase
     - For deregistering (`route`)
       - You don't really need to worry about deregistering for testing purposes. Feel free to work on other parts first
       - Once your map-reduce service works, registering/deregistering can be done by adding an 'interceptor' in the listening loop in `local/node.js` before `local.routes.get`
